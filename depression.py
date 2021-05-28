@@ -1,5 +1,6 @@
-import matplotlib
 import nltk
+import streamlit as st
+from PIL import Image
 
 nltk.download('punkt')
 from nltk.tokenize import word_tokenize
@@ -11,21 +12,12 @@ from math import log, sqrt
 import pandas as pd
 import numpy as np
 import re
+from pickle import dump
 
-
-
-"""# Loading the Data"""
 
 tweets = pd.read_csv('sentiment_tweets3.csv')
-tweets.head(20)
-
 tweets.drop(['Unnamed: 0'], axis=1, inplace=True)
-
 tweets['label'].value_counts()
-
-#tweets.info()
-
-
 
 totalTweets = 8000 + 2314
 trainIndex, testIndex = list(), list()
@@ -36,37 +28,6 @@ for i in range(tweets.shape[0]):
         testIndex += [i]
 trainData = tweets.iloc[trainIndex]
 testData = tweets.iloc[testIndex]
-
-#tweets.info()
-
-trainData['label'].value_counts()
-
-trainData.head()
-
-testData['label'].value_counts()
-
-testData.head()
-
-
-
-# depressive_words = ' '.join(list(tweets[tweets['label'] == 1]['message']))
-# depressive_wc = WordCloud(width=512, height=512, collocations=False, colormap="Blues").generate(depressive_words)
-# plt.figure(figsize=(10, 8), facecolor='k')
-# plt.imshow(depressive_wc)
-# plt.axis('off')
-# plt.tight_layout(pad=0)
-# plt.show()
-#
-# positive_words = ' '.join(list(tweets[tweets['label'] == 0]['message']))
-# positive_wc = WordCloud(width=512, height=512, collocations=False, colormap="Blues").generate(positive_words)
-# plt.figure(figsize=(10, 8), facecolor='k')
-# plt.imshow(positive_wc)
-# plt.axis('off'),
-# plt.tight_layout(pad=0)
-# plt.show()
-#
-#
-
 
 def process_message(message, lower_case=True, stem=True, stop_words=True, gram=2):
     if lower_case:
@@ -85,7 +46,6 @@ def process_message(message, lower_case=True, stem=True, stop_words=True, gram=2
         stemmer = PorterStemmer()
         words = [stemmer.stem(word) for word in words]
     return words
-
 
 class TweetClassifier(object):
     def __init__(self, trainData, method='tf-idf'):
@@ -142,6 +102,7 @@ class TweetClassifier(object):
         self.prob_depressive = dict()
         self.prob_positive = dict()
         self.sum_tf_idf_depressive = 0
+
         self.sum_tf_idf_positive = 0
         for word in self.tf_depressive:
             self.prob_depressive[word] = (self.tf_depressive[word]) * log(
@@ -192,91 +153,87 @@ class TweetClassifier(object):
         return result
 
 
-# def metrics(labels, predictions):
-#     true_pos, true_neg, false_pos, false_neg = 0, 0, 0, 0
-#     for i in range(len(labels)):
-#         true_pos += int(labels.iloc[i] == 1 and predictions[i] == 1)
-#         true_neg += int(labels.iloc[i] == 0 and predictions[i] == 0)
-#         false_pos += int(labels.iloc[i] == 0 and predictions[i] == 1)
-#         false_neg += int(labels.iloc[i] == 1 and predictions[i] == 0)
-#     precision = true_pos / (true_pos + false_pos)
-#     recall = true_pos / (true_pos + false_neg)
-#     Fscore = 2 * precision * recall / (precision + recall)
-#     accuracy = (true_pos + true_neg) / (true_pos + true_neg + false_pos + false_neg)
-#
-#     print("Precision: ", precision)
-#     print("Recall: ", recall)
-#     print("F-score: ", Fscore)
-#     print("Accuracy: ", accuracy)
+def metrics(labels, predictions):
+    true_pos, true_neg, false_pos, false_neg = 0, 0, 0, 0
+    for i in range(len(labels)):
+        true_pos += int(labels.iloc[i] == 1 and predictions[i] == 1)
+        true_neg += int(labels.iloc[i] == 0 and predictions[i] == 0)
+        false_pos += int(labels.iloc[i] == 0 and predictions[i] == 1)
+        false_neg += int(labels.iloc[i] == 1 and predictions[i] == 0)
+    precision = true_pos / (true_pos + false_pos)
+    recall = true_pos / (true_pos + false_neg)
+    Fscore = 2 * precision * recall / (precision + recall)
+    accuracy = (true_pos + true_neg) / (true_pos + true_neg + false_pos + false_neg)
 
+    print("Precision: ", precision)
+    print("Recall: ", recall)
+    print("F-score: ", Fscore)
+    print("Accuracy: ", accuracy)
+
+    return accuracy
 
 sc_tf_idf = TweetClassifier(trainData, 'tf-idf')
 sc_tf_idf.train()
 preds_tf_idf = sc_tf_idf.predict(testData['message'])
-# metrics(testData['label'], preds_tf_idf)
-# #
-# sc_bow = TweetClassifier(trainData, 'bow')
-# sc_bow.train()
-# preds_bow = sc_bow.predict(testData['message'])
-# metrics(testData['label'], preds_bow)
-#
-#
+metrics(testData['label'], preds_tf_idf)
 
-pm = process_message('i am happy but feel like dying')
-print(sc_tf_idf.classify(pm))
+bow = TweetClassifier(trainData, 'bow')
+bow.train()
 
-# pm = process_message('Extreme sadness, lack of energy, hopelessness')
-# sc_tf_idf.classify(pm)
+
+
+# pm = process_message("depression: i'm always here for u, darling")
+# print(pm)
+# print(sc_tf_idf.classify(pm))
+
+# def accuracy():
+#     return metrics(testData['label'], preds_tf_idf)
 #
-# pm = process_message('Hi hello depression and anxiety are the worst')
-# sc_tf_idf.classify(pm)
 #
-# pm = process_message('I am officially done with @kanyewest')
-# sc_tf_idf.classify(pm)
+# def predict_tweet(message):
+#     pm = process_message(message)
+#     print(pm)
+#     return sc_tf_idf.classify(pm)
 #
-# pm = process_message('Feeling down...')
-# sc_tf_idf.classify(pm)
+# def load_css(file_name):
+#     with open(file_name) as f:
+#         st.markdown('<style>{}</style>'.format(f.read()), unsafe_allow_html=True)
 #
-# pm = process_message('My depression will not let me work out')
-# sc_tf_idf.classify(pm)
+# def start():
+#     st.title("Tweet Classifier ML app")
+#     html_temp = """
+#     <div style="background-color:black;padding:15px">
+#     <h2 style="color:white";text-align:center;">Naive Bayes's  Theorem</h2>
+#     </div>
+#     """
 #
-# """# Positive Tweets"""
+#     st.markdown(html_temp,unsafe_allow_html=True)
+#     load_css('style.css')
 #
-# pm = process_message('Loving how me and my lovely partner is talking about what we want.')
-# sc_tf_idf.classify(pm)
+#     message = st.text_input("Enter Tweet")
+#     if st.button("Predict"):
+#         result = predict_tweet(message)
+#         if result == False:
+#             prediction = 'Non-Depressive Tweet'
+#             st.success('Tweet was classified as {}'.format(prediction))
+#             acc = accuracy()
+#             st.success('Accuracy : {}'.format(acc))
+#         elif result == True:
+#             prediction = 'Depressive Tweet'
+#             st.write("AASRA")
+#             st.write("http://www.aasra.info")
+#             st.write("Phone: 91-22-27546669")
+#             st.write("Phone: 91-22-27546667")
+#             st.write("Email: aasrahelpline@yahoo.com")
+#             c_img = 'dep.jpg'
+#             st.success('Tweet was classified as {}'.format(prediction))
+#             accc = accuracy()
+#             st.success('Metrics : {}'.format(accc))
+#         else:
+#             st.write("Failed to detect the tweet")
 #
-# pm = process_message(
-#     'Very rewarding when a patient hugs you and tells you they feel great after changing the diet and daily habits')
-# sc_tf_idf.classify(pm)
+#         st.text("Shailesh Sachan")
+#         st.text("Mujtaba Sayyed")
+#         st.text("Taha Khan")
 #
-# pm = process_message('Happy Thursday everyone. Thought today was Wednesday so super happy tomorrow is Friday yayyyyy')
-# sc_tf_idf.classify(pm)
-#
-# pm = process_message('It’s the little things that make me smile. Got our new car today and this arrived with it')
-# sc_tf_idf.classify(pm)
-#
-# """# Predictions with Bag-of-Words (BOW)
-#
-# # Depressive tweets
-# """
-#
-# pm = process_message('Hi hello depression and anxiety are the worst')
-# sc_bow.classify(pm)
-#
-# pm = process_message('My depression will not let me work out')
-# sc_bow.classify(pm)
-#
-# pm = process_message('Feeling down...')
-# sc_bow.classify(pm)
-#
-# """# Positive Tweets"""
-#
-# pm = process_message('Loving how me and my lovely partner is talking about what we want.')
-# sc_bow.classify(pm)
-#
-# pm = process_message(
-#     'Very rewarding when a patient hugs you and tells you they feel great after changing the diet and daily habits')
-# sc_bow.classify(pm)
-#
-# pm = process_message('Happy Thursday everyone. Thought today was Wednesday so super happy tomorrow is Friday yayyyyy')
-# sc_bow.classify(pm)
+# start()
